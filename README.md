@@ -12,22 +12,22 @@ git clone https://github.com/phamousq/2photonOrganoid.git
 cd 2photonOrganoid
 ```
 
-2. install dependencies
+2. activate virtual environment and install dependencies
 - on windows with pip
 ```bash
-pip install .
 python -m venv venv
 .\venv\Scripts\activate
+pip install .
 ```
 
 - on macos/linus with pip
 ```bash
-pip install .
 python3 -m venv venv
 source venv/bin/activate
+pip install .
 ```
 
-1. run the program
+3. run the program
 ```bash
 python main.py
 ```
