@@ -25,14 +25,14 @@ def calculate_background(image, roi_start=(0, 0), roi_size=(50, 50)):
     roi = image[roi_start[0]:roi_end[0], roi_start[1]:roi_end[1]]
     return np.mean(roi)
 
-def process_image(image_stack, power):
+def process_image(image_stack, power, bg_coords=(0, 0)):
     """Process a single image stack."""
     # Flatten the image stack into average values in a 2D array
     y, x = image_stack.shape[1:]  # Get y and x dimensions
     averaged_image = np.mean(image_stack, axis=0)
 
     # Perform background subtraction
-    bg_value = calculate_background(averaged_image)
+    bg_value = calculate_background(averaged_image, roi_start=bg_coords)
     background_subtracted = np.clip(averaged_image - bg_value, 0, None)
 
     # Apply median filter for noise reduction
@@ -51,7 +51,7 @@ def process_image(image_stack, power):
     return normalized_16bit
 
 
-def process_organoid_data(parent_dir):
+def process_organoid_data(parent_dir, bg_coords=(0, 0)):
     """Process all image data for a single organoid."""
 
     for condition_dir in [f.path for f in os.scandir(parent_dir) if f.is_dir()]:
@@ -72,7 +72,7 @@ def process_organoid_data(parent_dir):
             file_path = os.path.join(condition_dir, filename)
             try:
                 image_stack = tifffile.imread(file_path)
-                image_stacks.append(process_image(image_stack, power))
+                image_stacks.append(process_image(image_stack, power, bg_coords))
             except Exception as e:  # Catch any errors during file reading/processing
                 print(f"Error processing file {filename}: {e}")
                 continue  # Skip to the next file
@@ -95,7 +95,7 @@ pathRoot = 'media'
 for organoid_dir in [f.path for f in os.scandir(pathRoot) if f.is_dir()]:
     organoid_name = os.path.basename(organoid_dir)
     print(f"Processing organoid: {organoid_name}")
-    process_organoid_data(organoid_dir)
+    process_organoid_data(organoid_dir, bg_coords=(50,50)) # Example coordinates
 
 
 # TODO
