@@ -4,6 +4,23 @@ import tifffile
 import os
 from pathlib import Path
 from scipy.ndimage import median_filter
+import re
+
+# Constants
+POWER_TRANSMISSION = 0.20  # 20% power transmission at sample
+
+def extract_power(file_path):
+    """Extract laser power from parent folder name"""
+    # Get the parent folder name
+    parent_folder = os.path.basename(os.path.dirname(file_path))
+    # Look for pattern like '20mw'
+    power_match = re.search(r'.*?(\d+)mw', parent_folder)
+    if power_match:
+        power_mw = float(power_match.group(1))
+        # Apply transmission factor to get actual power at sample
+        return power_mw * POWER_TRANSMISSION
+    else:
+        raise ValueError(f"Could not extract power from folder name: {parent_folder}")
 
 # 1. get average image
 def calculate_background(image, roi_start=(0, 0), roi_size=(50, 50)):
@@ -14,9 +31,13 @@ def calculate_background(image, roi_start=(0, 0), roi_size=(50, 50)):
 
 def process_image(file_path):
     image_stack = tifffile.imread(file_path)
+    filename = os.path.basename(file_path)
     
     # Get the dimensions of the stack
     z, y, x = image_stack.shape
+    
+    # Extract power from parent folder name
+    power = extract_power(file_path)
     
     # Flatten the image stack into average values in a 2D array
     newArray = np.zeros((y, x))
@@ -34,10 +55,13 @@ def process_image(file_path):
     # Use a 3x3 kernel for moderate noise reduction while preserving edges
     filtered_array = median_filter(newArray, size=3)
     
+    # Normalize by power squared (I_normalized = I_measured / P^2)
+    power_normalized = filtered_array / (power ** 2)
+    
     ## Data Stats
     # print(f"Image stack dimensions: {z} x {y} x {x}")
-    # print(f'max value: {np.amax(filtered_array)}')
-    normalizeto16bit = ((filtered_array - np.amin(filtered_array)) / (np.amax(filtered_array) - np.amin(filtered_array)) * 65535).astype(np.uint16)
+    # print(f'max value: {np.amax(power_normalized)}')
+    normalizeto16bit = ((power_normalized - np.amin(power_normalized)) / (np.amax(power_normalized) - np.amin(power_normalized)) * 65535).astype(np.uint16)
     return normalizeto16bit
 
 # Create processed directory if it doesn't exist
