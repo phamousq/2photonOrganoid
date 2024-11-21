@@ -1,6 +1,6 @@
 # Investigation of Redox Ratio of 2 Photon Imaging of Intestinal Organoids
 
-## Prerequesites
+## Requirements
 - python >= 3.10
 - pip 
 
