@@ -12,27 +12,7 @@ def calculate_background(image, roi_start=(0, 0), roi_size=(50, 50)):
     roi = image[roi_start[0]:roi_end[0], roi_start[1]:roi_end[1]]
     return np.mean(roi)
 
-def visualize_comparison(original, filtered, title="Image Comparison"):
-    """
-    Display a side-by-side comparison of original and filtered images
-    """
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
-    
-    # Plot original image
-    im1 = ax1.imshow(original, cmap='gray')
-    ax1.set_title('Original')
-    plt.colorbar(im1, ax=ax1)
-    
-    # Plot filtered image
-    im2 = ax2.imshow(filtered, cmap='gray')
-    ax2.set_title('After Median Filter')
-    plt.colorbar(im2, ax=ax2)
-    
-    plt.suptitle(title)
-    plt.tight_layout()
-    plt.show()
-
-def process_image(file_path, show_comparison=False):
+def process_image(file_path):
     image_stack = tifffile.imread(file_path)
     
     # Get the dimensions of the stack
@@ -50,16 +30,9 @@ def process_image(file_path, show_comparison=False):
     # bg_value = calculate_background(newArray, roi_start=(100, 100), roi_size=(100, 100))
     newArray = np.clip(newArray - bg_value, 0, None)  # Subtract background, clip negative values to 0
     
-    # Store pre-filtered array for comparison
-    pre_filtered = newArray.copy()
-    
     # Apply median filter for noise reduction
     # Use a 3x3 kernel for moderate noise reduction while preserving edges
     filtered_array = median_filter(newArray, size=3)
-    
-    if show_comparison:
-        visualize_comparison(pre_filtered, filtered_array, 
-                           title=f"Comparison for {os.path.basename(file_path)}")
     
     ## Data Stats
     # print(f"Image stack dimensions: {z} x {y} x {x}")
@@ -90,9 +63,7 @@ for parent in [f.path for f in os.scandir(pathRoot) if f.is_dir()]:
         for filename in sorted_files:
             # print(filename)
             file_path = os.path.join(child, filename)
-            # Show comparison for first image in each condition
-            show_comparison = filename == sorted_files[0]
-            processed_image = process_image(file_path, show_comparison=show_comparison)
+            processed_image = process_image(file_path)
             stackOrganoid.append(processed_image)
         
         if stackOrganoid:  # Only save if we have processed images
