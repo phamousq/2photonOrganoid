@@ -98,8 +98,48 @@ for organoid_dir in [f.path for f in os.scandir(pathRoot) if f.is_dir()]:
     process_organoid_data(organoid_dir, bg_coords=(0,50)) # Example coordinates
 
 
-# TODO
 # Perform redox ratio calculations
+def calculate_redox_ratio(dir_745, dir_860, output_dir):
+    """Calculates the redox ratio between two image stacks."""
+
+    try:
+        stack_745 = tifffile.imread(dir_745)
+        stack_860 = tifffile.imread(dir_860)
+
+        # Check if dimensions match
+        if stack_745.shape != stack_860.shape:
+            raise ValueError("Image stack dimensions do not match for ratio calculation.")
+
+        # Calculate redox ratio (745nm / 860nm)
+        redox_ratio = np.divide(stack_745.astype(np.float32), stack_860.astype(np.float32), out=np.zeros_like(stack_745, dtype=np.float32), where=stack_860!=0)
+
+        # Save the redox ratio image
+        output_path = os.path.join(output_dir, f"{os.path.basename(dir_745).replace('_745nm', '_ratio')}")
+        tifffile.imwrite(output_path, redox_ratio)
+        print(f"Saved redox ratio to: {output_path}")
+
+    except FileNotFoundError:
+        print(f"Could not find matching 745nm and 860nm files for ratio calculation.")
+    except ValueError as e:
+        print(f"Error during ratio calculation: {e}")
+
+
+
+def process_redox_ratios(processed_dir):
+    """Process redox ratios for all organoids and conditions."""
+    os.makedirs("redox_ratios", exist_ok=True)
+    for filename in os.listdir(processed_dir):
+        if filename.endswith(".tif"):
+            match_745 = re.search(r"_(\d+)mw_745nm\.tif", filename)
+            if match_745:
+                power_745 = match_745.group(1)
+                base_filename = filename.replace(f"_{power_745}mw_745nm.tif", "")
+                file_860 = f"{base_filename}_{power_745}mw_860nm.tif" # Assumes same power for both wavelengths
+
+                file_path_745 = os.path.join(processed_dir, filename)
+                file_path_860 = os.path.join(processed_dir, file_860)
+
+                calculate_redox_ratio(file_path_745, file_path_860, "redox_ratios")
 
 
 # Analysis and plotting
@@ -108,10 +148,7 @@ for organoid_dir in [f.path for f in os.scandir(pathRoot) if f.is_dir()]:
 ## 2. compare control and DOX treated organoids
 
 ## 3. qualitative visualization
-
-# TODO 
-# Perform redox ratio calculations
-
+process_redox_ratios('processed')
 
 # Analysis and plotting
 ## 1. averaging across depth
