@@ -31,7 +31,6 @@ def calculate_background(image, roi_start=(0, 0), roi_size=(50, 50)):
 
 def process_image(file_path):
     image_stack = tifffile.imread(file_path)
-    filename = os.path.basename(file_path)
     
     # Get the dimensions of the stack
     z, y, x = image_stack.shape
@@ -104,13 +103,7 @@ for parent in [f.path for f in os.scandir(pathRoot) if f.is_dir()]:
         # Clear the stack for next condition
         stackOrganoid = []
 
-# 3. alignment adjestment between 2 channels
-
-# 4. noise reduction with median filter
-
-# 5. intensity normalization
-
-
+# TODO 
 # Perform redox ratio calculations
 
 
