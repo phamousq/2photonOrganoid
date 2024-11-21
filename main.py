@@ -45,12 +45,17 @@ for parent in [f.path for f in os.scandir(pathRoot) if f.is_dir()]:
         condition_name = os.path.basename(child)  # Get condition folder name
         print(f"Processing condition: {condition_name}")
         
-        # Process all TIF files in this condition
-        for filename in os.listdir(child):
-            if filename.endswith(('.tif', '.TIF')):
-                file_path = os.path.join(child, filename)
-                processed_image = process_image(file_path)
-                stackOrganoid.append(processed_image)
+        # Get all TIF files and sort them numerically
+        tif_files = [f for f in os.listdir(child) if f.endswith(('.tif', '.TIF'))]
+        # Sort files based on the numeric value in the filename
+        sorted_files = sorted(tif_files, key=lambda x: int(''.join(filter(str.isdigit, x))))
+        
+        # Process files in sorted order
+        for filename in sorted_files:
+            # print(filename)
+            file_path = os.path.join(child, filename)
+            processed_image = process_image(file_path)
+            stackOrganoid.append(processed_image)
         
         if stackOrganoid:  # Only save if we have processed images
             # Create output filename based on organoid and condition
