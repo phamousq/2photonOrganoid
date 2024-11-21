@@ -95,7 +95,7 @@ pathRoot = 'media'
 for organoid_dir in [f.path for f in os.scandir(pathRoot) if f.is_dir()]:
     organoid_name = os.path.basename(organoid_dir)
     print(f"Processing organoid: {organoid_name}")
-    process_organoid_data(organoid_dir, bg_coords=(50,50)) # Example coordinates
+    process_organoid_data(organoid_dir, bg_coords=(0,50)) # Example coordinates
 
 
 # TODO
