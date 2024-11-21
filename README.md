@@ -15,7 +15,7 @@ cd 2photonOrganoid
 2. activate virtual environment and install dependencies
 - on windows with pip
 ```bash
-python -m venv venv
+python3 -m venv venv
 .\venv\Scripts\activate
 pip install .
 ```
@@ -29,5 +29,5 @@ pip install .
 
 3. run the program
 ```bash
-python main.py
+python3 main.py
 ```
