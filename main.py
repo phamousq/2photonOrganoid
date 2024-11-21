@@ -8,6 +8,12 @@ from pathlib import Path
 
 
 # 1. get average image
+def calculate_background(image, roi_start=(0, 0), roi_size=(50, 50)):
+    """Calculate background value from a region of interest (ROI)"""
+    roi_end = (roi_start[0] + roi_size[0], roi_start[1] + roi_size[1])
+    roi = image[roi_start[0]:roi_end[0], roi_start[1]:roi_end[1]]
+    return np.mean(roi)
+
 def process_image(file_path):
     image_stack = tifffile.imread(file_path)
     
@@ -15,15 +21,14 @@ def process_image(file_path):
     z, y, x = image_stack.shape
     
     # Flatten the image stack into average values in a 2D array
-    newArray = np.zeros((x, y))
+    newArray = np.zeros((y, x))
     for i in range(y):
         for j in range(x):
             newArray[i][j] = np.mean(image_stack[:, i, j])
     
-    # # Display average image
-    # plt.imshow(newArray, cmap='gray')
-    # plt.axis('off')  # Remove axes for cleaner display
-    # plt.show()
+    # Perform background subtraction
+    bg_value = calculate_background(newArray)
+    newArray = np.clip(newArray - bg_value, 0, None)  # Subtract background, clip negative values to 0
     
     ## Data Stats
     # print(f"Image stack dimensions: {z} x {y} x {x}")
