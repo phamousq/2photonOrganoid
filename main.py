@@ -1,3 +1,4 @@
+# %% 
 import os
 import re
 from pathlib import Path
@@ -7,24 +8,29 @@ import numpy as np
 import tifffile
 from scipy.ndimage import median_filter
 
-# Constants
+# %% 
 POWER_TRANSMISSION = 0.20  # 20% power transmission at sample
-
 def extract_power(folder_name):
     """Extract laser power from folder name."""
     power_match = re.search(r'(\d+)mw', folder_name)
     if power_match:
         power_mw = float(power_match.group(1))
-        return power_mw * POWER_TRANSMISSION
+        extracted_power = round(power_mw * POWER_TRANSMISSION, 1)
+        print(f"Extracted power: {extracted_power} mw")
+        return extracted_power
     else:
         raise ValueError(f"Could not extract power from folder name: {folder_name}")
 
 def calculate_background(image, roi_start=(0, 0), roi_size=(50, 50)):
-    """Calculate background value from a region of interest (ROI)."""
+    """
+    Calculate background value from a region of interest (ROI). 
+    this is a 50x50 pixel square starting roi_start.
+    """ 
     roi_end = (roi_start[0] + roi_size[0], roi_start[1] + roi_size[1])
     roi = image[roi_start[0]:roi_end[0], roi_start[1]:roi_end[1]]
     return np.mean(roi)
 
+# %%
 def process_image(image_stack, power, bg_coords=(0, 0)):
     """Process a single image stack."""
     # Flatten the image stack into average values in a 2D array
@@ -50,7 +56,11 @@ def process_image(image_stack, power, bg_coords=(0, 0)):
     
     return normalized_16bit
 
+# a = process_image('media/Organoid 1_353mw_745nm.tif', 353)
+# plt.imshow(a, cmap='gray')
+# plt.show()
 
+# %%
 def process_organoid_data(parent_dir, bg_coords=(0, 0)):
     """Process all image data for a single organoid."""
 
@@ -78,7 +88,8 @@ def process_organoid_data(parent_dir, bg_coords=(0, 0)):
                 continue  # Skip to the next file
 
         if image_stacks:
-            output_filename = f"{os.path.basename(parent_dir)}_{condition_name}.tif"
+            os.makedirs(f'processed/{os.path.basename(parent_dir)}', exist_ok=True)
+            output_filename = f"{os.path.basename(parent_dir)}/{condition_name}.tif"
             output_path = os.path.join('processed', output_filename)
             
             try:
@@ -87,9 +98,10 @@ def process_organoid_data(parent_dir, bg_coords=(0, 0)):
             except Exception as e:
                 print(f"Error saving processed stack to {output_path}: {e}")
 
+
+# %% Create processed images for each organoid
 # Create processed directory if it doesn't exist
 os.makedirs('processed', exist_ok=True)
-
 pathRoot = 'media'
 
 for organoid_dir in [f.path for f in os.scandir(pathRoot) if f.is_dir()]:
@@ -97,50 +109,74 @@ for organoid_dir in [f.path for f in os.scandir(pathRoot) if f.is_dir()]:
     print(f"Processing organoid: {organoid_name}")
     process_organoid_data(organoid_dir, bg_coords=(0,50)) # Example coordinates
 
+# %% Redox Ratio Calculations
+def calculate_redox_ratio(parent_dir, roi_coords=[100, 100]):
+    """_summary_
 
-# Perform redox ratio calculations
-def calculate_redox_ratio(dir_745, dir_860, output_dir):
-    """Calculates the redox ratio between two image stacks."""
+    Args:
+        parent_dir (_type_): folder with nadh and fad tiffs only. should be 'processed/Organoid 1/[xxx]mw_[yyy]nm.tif'
+        roi_coords (tuple, optional): y_start and x_start. Defaults to (100, 100).
+    """
+    # Loop through files in parent_dir
+    for file in os.listdir(parent_dir):
+        if file.endswith('745nm.tif'):
+            nadh_image = tifffile.imread(os.path.join(parent_dir, file))[0]
+        elif file.endswith('860nm.tif'):
+            fad_image = tifffile.imread(os.path.join(parent_dir, file))[0]
 
-    try:
-        stack_745 = tifffile.imread(dir_745)
-        stack_860 = tifffile.imread(dir_860)
+    if 'nadh_image' not in locals() or 'fad_image' not in locals():
+        raise ValueError("Could not find both NADH and FAD images in the directory.")
 
-        # Check if dimensions match
-        if stack_745.shape != stack_860.shape:
-            raise ValueError("Image stack dimensions do not match for ratio calculation.")
+    rois = [(slice(roi_coords[0], roi_coords[0]+50), slice(roi_coords[1], roi_coords[1]+50))]
+    # Draw ROI and determine redox ratio
+    # Create visualization of ROIs on first image
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+    ax1.imshow(nadh_image, cmap='gray')
+    ax1.set_title('NADH')
+    ax1.axis('image')
 
-        # Calculate redox ratio (745nm / 860nm)
-        redox_ratio = np.divide(stack_745.astype(np.float32), stack_860.astype(np.float32), out=np.zeros_like(stack_745, dtype=np.float32), where=stack_860!=0)
+    ax2.imshow(fad_image, cmap='gray')
+    ax2.set_title('FAD')
+    ax2.axis('image')
 
-        # Save the redox ratio image
-        output_path = os.path.join(output_dir, f"{os.path.basename(dir_745).replace('_745nm', '_ratio')}")
-        tifffile.imwrite(output_path, redox_ratio)
-        print(f"Saved redox ratio to: {output_path}")
+    # Highlight ROIs
+    colors = ['red']
+    for (roi, color) in zip(rois, colors):
+        y_slice, x_slice = roi
+        rect = plt.Rectangle((x_slice.start, y_slice.start), 
+                            x_slice.stop - x_slice.start, 
+                            y_slice.stop - y_slice.start,
+                            fill=False, color=color, linewidth=2)
+        ax1.add_patch(rect)
+        # Add text label near the ROI
+        ax1.text(x_slice.start, y_slice.start-5, 'ROI', color=color, 
+                fontsize=10, fontweight='bold')
 
-    except FileNotFoundError:
-        print(f"Could not find matching 745nm and 860nm files for ratio calculation.")
-    except ValueError as e:
-        print(f"Error during ratio calculation: {e}")
+        rect2 = plt.Rectangle((x_slice.start, y_slice.start), 
+                            x_slice.stop - x_slice.start, 
+                            y_slice.stop - y_slice.start,
+                            fill=False, color=color, linewidth=2)
+        ax2.add_patch(rect2)
+        # Add text label near the ROI
+        ax2.text(x_slice.start, y_slice.start-5, 'ROI', color=color, 
+                fontsize=10, fontweight='bold')
+
+    plt.tight_layout()
+    plt.show()
+
+    nadh_roi = nadh_image[roi_y:roi_y+50, roi_x:roi_x+50]
+    fad_roi = fad_image[roi_y:roi_y+50, roi_x:roi_x+50]
+
+    ratio = np.divide(fad_roi.astype(float), (nadh_roi.astype(float) +fad_roi.astype(float)), out=np.zeros_like(nadh_roi, dtype=float), where=fad_roi+nadh_roi!=0)
+    print(f'{parent_dir[:-1]} Redox Ratio: {round(np.mean(ratio), 2)}')
+
+calculate_redox_ratio('processed/Organoid 1/', roi_coords = [80, 280])
+calculate_redox_ratio('processed/Organoid 2/', roi_coords = [80, 280])
+calculate_redox_ratio('processed/Organoid_DMSO_treated/', roi_coords = [200, 200])
+calculate_redox_ratio('processed/Organoid_DOX_treated/', roi_coords = [120, 320])
 
 
-
-def process_redox_ratios(processed_dir):
-    """Process redox ratios for all organoids and conditions."""
-    os.makedirs("redox_ratios", exist_ok=True)
-    for filename in os.listdir(processed_dir):
-        if filename.endswith(".tif"):
-            match_745 = re.search(r"_(\d+)mw_745nm\.tif", filename)
-            if match_745:
-                power_745 = match_745.group(1)
-                base_filename = filename.replace(f"_{power_745}mw_745nm.tif", "")
-                file_860 = f"{base_filename}_{power_745}mw_860nm.tif" # Assumes same power for both wavelengths
-
-                file_path_745 = os.path.join(processed_dir, filename)
-                file_path_860 = os.path.join(processed_dir, file_860)
-
-                calculate_redox_ratio(file_path_745, file_path_860, "redox_ratios")
-
+# %% TODO
 
 # Analysis and plotting
 ## 1. averaging across depth
@@ -148,11 +184,4 @@ def process_redox_ratios(processed_dir):
 ## 2. compare control and DOX treated organoids
 
 ## 3. qualitative visualization
-process_redox_ratios('processed')
-
-# Analysis and plotting
-## 1. averaging across depth
-
-## 2. compare control and DOX treated organoids
-
-## 3. qualitative visualization
+# %%
