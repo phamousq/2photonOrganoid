@@ -170,18 +170,23 @@ def calculate_redox_ratio(parent_dir, roi_coords=[100, 100]):
     ratio = np.divide(fad_roi.astype(float), (nadh_roi.astype(float) +fad_roi.astype(float)), out=np.zeros_like(nadh_roi, dtype=float), where=fad_roi+nadh_roi!=0)
     print(f'{parent_dir[:-1]} Redox Ratio: {round(np.mean(ratio), 2)}')
 
-calculate_redox_ratio('processed/Organoid 1/', roi_coords = [80, 280])
-calculate_redox_ratio('processed/Organoid 2/', roi_coords = [80, 280])
+calculate_redox_ratio('processed/Organoid1/', roi_coords = [80, 280])
+calculate_redox_ratio('processed/Organoid2/', roi_coords = [200, 400])
 calculate_redox_ratio('processed/Organoid_DMSO_treated/', roi_coords = [200, 200])
 calculate_redox_ratio('processed/Organoid_DOX_treated/', roi_coords = [120, 320])
 
 
 # %% TODO
 
+# Image Processing
+# 1. custom background coordinates for each organoid 
+# 2. alignment adjustments between channels
+
+
 # Analysis and plotting
-## 1. averaging across depth
+## Redox Ratio
+## averaging across depth
 
 ## 2. compare control and DOX treated organoids
-
 ## 3. qualitative visualization
 # %%
