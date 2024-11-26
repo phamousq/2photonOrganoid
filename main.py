@@ -179,14 +179,20 @@ calculate_redox_ratio('processed/Organoid_DOX_treated/', roi_coords = [120, 320]
 # %% TODO
 
 # Image Processing
-# 1. custom background coordinates for each organoid 
-# 2. alignment adjustments between channels
-
+## 1. custom background coordinates for each organoid for background subtraction
+## 2. alignment adjustments between channels
 
 # Analysis and plotting
-## Redox Ratio
-## averaging across depth
+## 1. Redox Ratio
+### Averaging across depth for redox ratio
 
 ## 2. compare control and DOX treated organoids
+### Can do 2 sample t-test to compare between the 2 groups
+
 ## 3. qualitative visualization
+### Take max z project across the z stack in each folder, 
+### then do the normalization and Redox ratio calculation 
+### and then create a colormap (eg. Red to blue) for low to high redox ratio. 
+### This will help in visualization and qualitative comparison between the control vs treated organoids
+
 # %%
