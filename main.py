@@ -118,7 +118,7 @@ def calculate_redox_ratio(parent_dir, roi_coords=(0, 0), roi_size=(50, 50)):
         roi_coords (tuple, optional): y_start and x_start. Defaults to (0, 0).
         roi_size (tuple, optional): y_size and x_size. Defaults to (50, 50).
         
-        if roi_size == (0, 0), ROI will be full image
+        if roi_size == (0, 0), ROI will be full image 
     """
     # Loop through files in parent_dir
     for file in os.listdir(parent_dir):
@@ -268,7 +268,7 @@ dox_redox = create_redox_ratio_colormap('processed/Organoid_DOX_treated/')
 # %% TODO
 
 # Image Processing
-## 1. custom background coordinates for each organoid for background subtraction
+## 1. custom background coordinates for each organoid for background subtraction - top left corner is relatively empty, so doesn't need to be subtracted
 ## 2. alignment adjustments between channels
 
 
