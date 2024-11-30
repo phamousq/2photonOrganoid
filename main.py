@@ -6,7 +6,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import tifffile
-from scipy.ndimage import median_filter
+from scipy import stats
 
 # %% 
 POWER_TRANSMISSION = 0.20  # 20% power transmission at sample
@@ -109,13 +109,16 @@ for organoid_dir in [f.path for f in os.scandir(pathRoot) if f.is_dir()]:
     print(f"Processing organoid: {organoid_name}")
     process_organoid_data(organoid_dir, bg_coords=(0,50)) # Example coordinates
 
-# %% Redox Ratio Calculations
-def calculate_redox_ratio(parent_dir, roi_coords=[100, 100]):
+# %% Redox Ratio Calculations - Functions
+def calculate_redox_ratio(parent_dir, roi_coords=(0, 0), roi_size=(50, 50)):
     """_summary_
 
     Args:
         parent_dir (_type_): folder with nadh and fad tiffs only. should be 'processed/Organoid 1/[xxx]mw_[yyy]nm.tif'
-        roi_coords (tuple, optional): y_start and x_start. Defaults to (100, 100).
+        roi_coords (tuple, optional): y_start and x_start. Defaults to (0, 0).
+        roi_size (tuple, optional): y_size and x_size. Defaults to (50, 50).
+        
+        if roi_size == (0, 0), ROI will be full image
     """
     # Loop through files in parent_dir
     for file in os.listdir(parent_dir):
@@ -126,16 +129,23 @@ def calculate_redox_ratio(parent_dir, roi_coords=[100, 100]):
 
     if 'nadh_image_stack' not in locals() or 'fad_image_stack' not in locals():
         raise ValueError("Could not find both NADH and FAD images in the directory.")
-
-    rois = [(slice(roi_coords[0], roi_coords[0]+50), slice(roi_coords[1], roi_coords[1]+50))]
+    
+    if roi_size == (0, 0):
+        roi_size = nadh_image_stack.shape[1:]  # Set to image dimensions (y, x)
+        roi_coords = (0, 0)  # Start from the top-left corner when using full image
+    
+    rois = [(slice(roi_coords[0], roi_coords[0]+roi_size[0]), slice(roi_coords[1], roi_coords[1]+roi_size[1]))]
+    
+    nadh_max = np.max(nadh_image_stack, axis=0) 
+    fad_max = np.max(fad_image_stack, axis=0)
     # Draw ROI and determine redox ratio
     # Create visualization of ROIs on first image
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
-    ax1.imshow(nadh_image_stack[0], cmap='gray')
+    ax1.imshow(nadh_max, cmap='gray')
     ax1.set_title('NADH')
     ax1.axis('image')
 
-    ax2.imshow(fad_image_stack[0], cmap='gray')
+    ax2.imshow(fad_max, cmap='gray')
     ax2.set_title('FAD')
     ax2.axis('image')
 
@@ -164,17 +174,96 @@ def calculate_redox_ratio(parent_dir, roi_coords=[100, 100]):
     plt.tight_layout()
     plt.show()
 
-    nadh_roi = nadh_image_stack[0][roi_y:roi_y+50, roi_x:roi_x+50]
-    fad_roi = fad_image_stack[0][roi_y:roi_y+50, roi_x:roi_x+50]
+    RR_arr = []
+    
+    for j in range(len(nadh_image_stack)):
+        
+        nadh_roi = nadh_image_stack[j][roi_coords[0]:roi_coords[0]+roi_size[0], roi_coords[1]:roi_coords[1]+roi_size[1]]    
+        fad_roi = fad_image_stack[j][roi_coords[0]:roi_coords[0]+roi_size[0], roi_coords[1]:roi_coords[1]+roi_size[1]]
+        
+        ratio = np.divide(fad_roi.astype(float), (nadh_roi.astype(float) +fad_roi.astype(float)), out=np.zeros_like(nadh_roi, dtype=float), where=fad_roi+nadh_roi!=0)
+        
+        
+        RR_arr.append(np.mean(ratio)) # taking the mean here could result in data loss contributing to less power for the t test.
+        
+    print(f'{parent_dir[:-1]} - Avg. Redox Ratio: {round(np.mean(RR_arr), 2)}')
+    # RR_arr returned contains the redox ratio at each correspending depth; array of numpy float values
+    return RR_arr
 
-    ratio = np.divide(fad_roi.astype(float), (nadh_roi.astype(float) +fad_roi.astype(float)), out=np.zeros_like(nadh_roi, dtype=float), where=fad_roi+nadh_roi!=0)
-    print(f'{parent_dir[:-1]} Redox Ratio: {round(np.mean(ratio), 2)}')
+# %% Redox Ratio Calculations
 
-calculate_redox_ratio('processed/Organoid1/', roi_coords = [80, 280])
-calculate_redox_ratio('processed/Organoid2/', roi_coords = [200, 400])
-calculate_redox_ratio('processed/Organoid_DMSO_treated/', roi_coords = [200, 200])
-calculate_redox_ratio('processed/Organoid_DOX_treated/', roi_coords = [120, 320])
+o1_arr = calculate_redox_ratio('processed/Organoid1/', roi_coords = (180, 280))
+o2_arr = calculate_redox_ratio('processed/Organoid2/', roi_coords = (290, 190))
+DMSO_arr = calculate_redox_ratio('processed/Organoid_DMSO_treated/', roi_coords = (200, 200))
+DOX_arr = calculate_redox_ratio('processed/Organoid_DOX_treated/', roi_coords = (280, 240))
 
+# DMSO_arr_test = calculate_redox_ratio('processed/Organoid_DMSO_treated/', roi_coords = (0, 0), roi_size=(1, 1))
+# DOX_arr_test = calculate_redox_ratio('processed/Organoid_DOX_treated/', roi_coords = (0, 0), roi_size=(1, 1))
+
+
+# %% T Testing
+# Analysis and plotting
+## 2. compare control and DOX treated organoids
+### Can do 2 sample t-test to compare between the 2 groups
+print(f'org1 vs org2: {stats.ttest_ind(o1_arr, o2_arr)}')
+print(f'DMSO vs DOX: {stats.ttest_ind(DMSO_arr, DOX_arr)}')
+
+# %%
+## 3. Qualitative visualization
+def create_redox_ratio_colormap(parent_dir, roi_coords=(100, 100)):
+    try:
+        # Read NADH and FAD image stacks
+        nadh_file = next(f for f in os.listdir(parent_dir) if f.endswith('745nm.tif'))
+        fad_file = next(f for f in os.listdir(parent_dir) if f.endswith('860nm.tif'))
+        
+        nadh_stack = tifffile.imread(os.path.join(parent_dir, nadh_file))
+        fad_stack = tifffile.imread(os.path.join(parent_dir, fad_file))
+
+        # Max z-projection
+        nadh_max = np.max(nadh_stack, axis=0)
+        fad_max = np.max(fad_stack, axis=0)
+
+        # Calculate redox ratio
+        redox_ratio = np.divide(fad_max.astype(float), (nadh_max.astype(float) + fad_max.astype(float)),
+                                out=np.zeros_like(nadh_max, dtype=float), where=fad_max+nadh_max!=0)
+
+        # Create figure with three subplots
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 6))
+
+        # Plot NADH max projection
+        ax1.imshow(nadh_max, cmap='gray')
+        ax1.set_title('NADH Max Projection')
+        ax1.axis('off')
+
+        # Plot FAD max projection
+        ax2.imshow(fad_max, cmap='gray')
+        ax2.set_title('FAD Max Projection')
+        ax2.axis('off')
+
+        # Plot redox ratio colormap
+        im = ax3.imshow(redox_ratio, cmap='coolwarm', vmin=0, vmax=1)
+        ax3.set_title('Redox Ratio Colormap')
+        ax3.axis('off')
+
+        # Add colorbar
+        cbar = fig.colorbar(im, ax=ax3, fraction=0.046, pad=0.04)
+        cbar.set_label('Redox Ratio')
+
+        plt.suptitle(f'Analysis - {os.path.basename(parent_dir)}')
+        plt.tight_layout()
+        plt.subplots_adjust(wspace=0.05)
+        plt.show()
+
+        return redox_ratio
+    except FileNotFoundError:
+        print(f"Error: Required files not found in directory {parent_dir}")
+        return None
+
+# Generate colormaps for each condition
+org1_redox = create_redox_ratio_colormap('processed/Organoid1/')
+org2_redox = create_redox_ratio_colormap('processed/Organoid2/')
+dmso_redox = create_redox_ratio_colormap('processed/Organoid_DMSO_treated/')
+dox_redox = create_redox_ratio_colormap('processed/Organoid_DOX_treated/')
 
 # %% TODO
 
@@ -182,17 +271,5 @@ calculate_redox_ratio('processed/Organoid_DOX_treated/', roi_coords = [120, 320]
 ## 1. custom background coordinates for each organoid for background subtraction
 ## 2. alignment adjustments between channels
 
-# Analysis and plotting
-## 1. Redox Ratio
-### Averaging across depth for redox ratio
-
-## 2. compare control and DOX treated organoids
-### Can do 2 sample t-test to compare between the 2 groups
-
-## 3. qualitative visualization
-### Take max z project across the z stack in each folder, 
-### then do the normalization and Redox ratio calculation 
-### and then create a colormap (eg. Red to blue) for low to high redox ratio. 
-### This will help in visualization and qualitative comparison between the control vs treated organoids
 
 # %%
