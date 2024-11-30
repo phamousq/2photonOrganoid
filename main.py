@@ -190,8 +190,6 @@ def calculate_redox_ratio(parent_dir, roi_coords=(0, 0), roi_size=(50, 50)):
     # RR_arr returned contains the redox ratio at each correspending depth; array of numpy float values
     return RR_arr
 
-# %% Redox Ratio Calculations
-
 o1_arr = calculate_redox_ratio('processed/Organoid1/', roi_coords = (180, 280))
 o2_arr = calculate_redox_ratio('processed/Organoid2/', roi_coords = (290, 190))
 DMSO_arr = calculate_redox_ratio('processed/Organoid_DMSO_treated/', roi_coords = (200, 200))
@@ -268,8 +266,4 @@ dox_redox = create_redox_ratio_colormap('processed/Organoid_DOX_treated/')
 # %% TODO
 
 # Image Processing
-## 1. custom background coordinates for each organoid for background subtraction - top left corner is relatively empty, so doesn't need to be subtracted
-## 2. alignment adjustments between channels
-
-
-# %%
+## 1. custom background coordinates for each organoid for background subtraction - top left corner 
