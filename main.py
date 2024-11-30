@@ -62,6 +62,44 @@ def process_image(image_stack, power, bg_coords=(0, 0)):
 
 # %%
 def process_organoid_data(parent_dir, bg_coords=(0, 0)):
+    """Process all image data for a single organoid with image alignment."""
+    for condition_dir in [f.path for f in os.scandir(parent_dir) if f.is_dir()]:
+        condition_name = os.path.basename(condition_dir)
+        print(f"Processing condition: {condition_name}")
+
+        try:
+            power = extract_power(condition_name)
+        except ValueError as e:
+            print(f"Skipping condition {condition_name}: {e}")
+            continue
+
+        nadh_file = next((f for f in os.listdir(condition_dir) if f.endswith('745nm.tif')), None)
+        fad_file = next((f for f in os.listdir(condition_dir) if f.endswith('860nm.tif')), None)
+
+        if nadh_file and fad_file:
+            nadh_stack = tifffile.imread(os.path.join(condition_dir, nadh_file))
+            fad_stack = tifffile.imread(os.path.join(condition_dir, fad_file))
+
+            # Compute max intensity projections
+            nadh_max = np.max(nadh_stack, axis=0)
+            fad_max = np.max(fad_stack, axis=0)
+
+            # Align images based on max intensity projections
+            shift, _, _ = register_translation(nadh_max, fad_max, upsample_factor=100)
+            aligned_fad_stack = shift(fad_stack, shift=(0, shift[0], shift[1]), mode='constant', cval=0)
+
+            # Process aligned images
+            processed_nadh = process_image(nadh_stack, power, bg_coords)
+            processed_fad = process_image(aligned_fad_stack, power, bg_coords)
+
+            # Save processed images
+            output_dir = os.path.join('processed', os.path.basename(parent_dir), condition_name)
+            os.makedirs(output_dir, exist_ok=True)
+            tifffile.imwrite(os.path.join(output_dir, f'{condition_name}_745nm.tif'), processed_nadh)
+            tifffile.imwrite(os.path.join(output_dir, f'{condition_name}_860nm.tif'), processed_fad)
+
+        else:
+            print(f"Skipping condition {condition_name}: Missing NADH or FAD image")
     """Process all image data for a single organoid."""
 
     for condition_dir in [f.path for f in os.scandir(parent_dir) if f.is_dir()]:
