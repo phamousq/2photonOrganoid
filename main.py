@@ -6,6 +6,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import tifffile
+from scipy.ndimage import median_filter
+from skimage.registration import phase_cross_correlation
+from scipy.ndimage import shift
 from scipy import stats
 
 # %% 
@@ -85,7 +88,7 @@ def process_organoid_data(parent_dir, bg_coords=(0, 0)):
             fad_max = np.max(fad_stack, axis=0)
 
             # Align images based on max intensity projections
-            shift, _, _ = register_translation(nadh_max, fad_max, upsample_factor=100)
+            shift, _, _ = phase_cross_correlation(nadh_max, fad_max, upsample_factor=100)
             aligned_fad_stack = shift(fad_stack, shift=(0, shift[0], shift[1]), mode='constant', cval=0)
 
             # Process aligned images
