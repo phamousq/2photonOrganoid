@@ -120,22 +120,22 @@ def calculate_redox_ratio(parent_dir, roi_coords=[100, 100]):
     # Loop through files in parent_dir
     for file in os.listdir(parent_dir):
         if file.endswith('745nm.tif'):
-            nadh_image = tifffile.imread(os.path.join(parent_dir, file))[0]
+            nadh_image_stack = tifffile.imread(os.path.join(parent_dir, file))
         elif file.endswith('860nm.tif'):
-            fad_image = tifffile.imread(os.path.join(parent_dir, file))[0]
+            fad_image_stack = tifffile.imread(os.path.join(parent_dir, file))
 
-    if 'nadh_image' not in locals() or 'fad_image' not in locals():
+    if 'nadh_image_stack' not in locals() or 'fad_image_stack' not in locals():
         raise ValueError("Could not find both NADH and FAD images in the directory.")
 
     rois = [(slice(roi_coords[0], roi_coords[0]+50), slice(roi_coords[1], roi_coords[1]+50))]
     # Draw ROI and determine redox ratio
     # Create visualization of ROIs on first image
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
-    ax1.imshow(nadh_image, cmap='gray')
+    ax1.imshow(nadh_image_stack[0], cmap='gray')
     ax1.set_title('NADH')
     ax1.axis('image')
 
-    ax2.imshow(fad_image, cmap='gray')
+    ax2.imshow(fad_image_stack[0], cmap='gray')
     ax2.set_title('FAD')
     ax2.axis('image')
 
@@ -164,8 +164,8 @@ def calculate_redox_ratio(parent_dir, roi_coords=[100, 100]):
     plt.tight_layout()
     plt.show()
 
-    nadh_roi = nadh_image[roi_y:roi_y+50, roi_x:roi_x+50]
-    fad_roi = fad_image[roi_y:roi_y+50, roi_x:roi_x+50]
+    nadh_roi = nadh_image_stack[0][roi_y:roi_y+50, roi_x:roi_x+50]
+    fad_roi = fad_image_stack[0][roi_y:roi_y+50, roi_x:roi_x+50]
 
     ratio = np.divide(fad_roi.astype(float), (nadh_roi.astype(float) +fad_roi.astype(float)), out=np.zeros_like(nadh_roi, dtype=float), where=fad_roi+nadh_roi!=0)
     print(f'{parent_dir[:-1]} Redox Ratio: {round(np.mean(ratio), 2)}')
