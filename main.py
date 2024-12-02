@@ -212,7 +212,10 @@ def calculate_redox_ratio(parent_dir, roi_coords=(0, 0), roi_size=(50, 50)):
         ax2.text(x_slice.start, y_slice.start-5, 'ROI', color=color, 
                 fontsize=10, fontweight='bold')
 
+    file_name = parent_dir.split('/')
     plt.tight_layout()
+    os.makedirs('processed/max_intensities', exist_ok=True)
+    plt.savefig(f'processed/max_intensities/{file_name[1]}_with_ROIs.png')
     plt.show()
 
     RR_arr = []
@@ -287,10 +290,12 @@ def create_redox_ratio_colormap(parent_dir, roi_coords=(100, 100)):
         # Add colorbar
         cbar = fig.colorbar(im, ax=ax3, fraction=0.046, pad=0.04)
         cbar.set_label('Redox Ratio')
-
+        
+        file_name = parent_dir[:-1].split('/')
         plt.suptitle(f'Analysis - {os.path.basename(parent_dir)}')
         plt.tight_layout()
         plt.subplots_adjust(wspace=0.05)
+        plt.savefig(f'./{file_name[0]}/Redox_Ratios/{file_name[1]}_redox_ratio_colormap.png')
         plt.show()
 
         return redox_ratio
