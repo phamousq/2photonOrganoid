@@ -10,6 +10,7 @@ from scipy.ndimage import median_filter
 from skimage.registration import phase_cross_correlation
 from scipy.ndimage import shift
 from scipy import stats
+from PIL import Image
 
 # %% 
 POWER_TRANSMISSION = 0.20  # 20% power transmission at sample
@@ -214,8 +215,8 @@ def calculate_redox_ratio(parent_dir, roi_coords=(0, 0), roi_size=(50, 50)):
 
     file_name = parent_dir.split('/')
     plt.tight_layout()
-    os.makedirs('processed/max_intensities', exist_ok=True)
-    plt.savefig(f'processed/max_intensities/{file_name[1]}_with_ROIs.png')
+    os.makedirs('final_images/max_intensities', exist_ok=True)
+    plt.savefig(f'final_images/max_intensities/{file_name[1]}_with_ROIs.png')
     plt.show()
 
     RR_arr = []
@@ -236,7 +237,7 @@ def calculate_redox_ratio(parent_dir, roi_coords=(0, 0), roi_size=(50, 50)):
 
 o1_arr = calculate_redox_ratio('processed/Organoid1/', roi_coords = (180, 280))
 o2_arr = calculate_redox_ratio('processed/Organoid2/', roi_coords = (290, 190))
-DMSO_arr = calculate_redox_ratio('processed/Organoid_DMSO_treated/', roi_coords = (200, 200))
+DMSO_arr = calculate_redox_ratio('processed/Organoid_DMSO_treated/', roi_coords = (200, 120))
 DOX_arr = calculate_redox_ratio('processed/Organoid_DOX_treated/', roi_coords = (280, 240))
 
 # DMSO_arr_test = calculate_redox_ratio('processed/Organoid_DMSO_treated/', roi_coords = (0, 0), roi_size=(1, 1))
@@ -295,7 +296,8 @@ def create_redox_ratio_colormap(parent_dir, roi_coords=(100, 100)):
         plt.suptitle(f'Analysis - {os.path.basename(parent_dir)}')
         plt.tight_layout()
         plt.subplots_adjust(wspace=0.05)
-        plt.savefig(f'./{file_name[0]}/Redox_Ratios/{file_name[1]}_redox_ratio_colormap.png')
+        os.makedirs('./final_images/Redox_Ratios', exist_ok=True)
+        plt.savefig(f'./final_images/Redox_Ratios/{file_name[1]}_redox_ratio_colormap.png')
         plt.show()
 
         return redox_ratio
@@ -308,6 +310,14 @@ org1_redox = create_redox_ratio_colormap('processed/Organoid1/')
 org2_redox = create_redox_ratio_colormap('processed/Organoid2/')
 dmso_redox = create_redox_ratio_colormap('processed/Organoid_DMSO_treated/')
 dox_redox = create_redox_ratio_colormap('processed/Organoid_DOX_treated/')
+
+# %% Export Images
+def tif_to_gif(tif_file, gif_file):
+    """Convert a TIFF file to a GIF file."""
+    img = Image.open(tif_file)
+    img.save(gif_file, save_all=True)
+
+tif_to_gif("your_image.tif", "output.gif")
 
 # %% TODO
 
