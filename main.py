@@ -1,16 +1,13 @@
 # %% 
 import os
 import re
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import tifffile
 from scipy.ndimage import median_filter
 from skimage.registration import phase_cross_correlation
-from scipy.ndimage import shift
 from scipy import stats
-from PIL import Image
 
 # %% 
 POWER_TRANSMISSION = 0.20  # 20% power transmission at sample
@@ -178,11 +175,13 @@ def calculate_redox_ratio(parent_dir, roi_coords=(0, 0), roi_size=(50, 50)):
     
     rois = [(slice(roi_coords[0], roi_coords[0]+roi_size[0]), slice(roi_coords[1], roi_coords[1]+roi_size[1]))]
     
+    # ! Add title with organoid
+    # ! 
     nadh_max = np.max(nadh_image_stack, axis=0) 
     fad_max = np.max(fad_image_stack, axis=0)
     # Draw ROI and determine redox ratio
     # Create visualization of ROIs on first image
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
     ax1.imshow(nadh_max, cmap='gray')
     ax1.set_title('NADH')
     ax1.axis('image')
@@ -190,6 +189,7 @@ def calculate_redox_ratio(parent_dir, roi_coords=(0, 0), roi_size=(50, 50)):
     ax2.imshow(fad_max, cmap='gray')
     ax2.set_title('FAD')
     ax2.axis('image')
+    fig.suptitle(f'{parent_dir[:-1]}')
 
     # Highlight ROIs
     colors = ['red']
@@ -238,11 +238,58 @@ def calculate_redox_ratio(parent_dir, roi_coords=(0, 0), roi_size=(50, 50)):
 o1_arr = calculate_redox_ratio('processed/Organoid1/', roi_coords = (180, 280))
 o2_arr = calculate_redox_ratio('processed/Organoid2/', roi_coords = (290, 190))
 DMSO_arr = calculate_redox_ratio('processed/Organoid_DMSO_treated/', roi_coords = (200, 120))
-DOX_arr = calculate_redox_ratio('processed/Organoid_DOX_treated/', roi_coords = (280, 240))
+DOX_arr = calculate_redox_ratio('processed/Organoid_DOX_treated/', roi_coords=(280, 240))
 
-# DMSO_arr_test = calculate_redox_ratio('processed/Organoid_DMSO_treated/', roi_coords = (0, 0), roi_size=(1, 1))
-# DOX_arr_test = calculate_redox_ratio('processed/Organoid_DOX_treated/', roi_coords = (0, 0), roi_size=(1, 1))
+#%% Plot 1
+o2_sample1 = calculate_redox_ratio('processed/Organoid2/', roi_coords = (400, 320), roi_size=(25, 25))
+o2_sample2 = calculate_redox_ratio('processed/Organoid2/', roi_coords = (350, 300), roi_size=(25, 25))
+o2_sample3 = calculate_redox_ratio('processed/Organoid2/', roi_coords = (320, 400), roi_size=(25, 25))
 
+plt.figure(figsize=(12, 8))
+z_values = [0, 10] + list(range(30, 120, 20))
+
+plt.plot(z_values[:len(o2_sample1)], o2_sample1, marker='s', label='ROI 1')
+plt.plot(z_values[:len(o2_sample2)], o2_sample2, marker='s', label='ROI 2')
+plt.plot(z_values[:len(o2_sample3)], o2_sample3, marker='s', label='ROI 3')
+
+plt.xlabel('Imaging Depth (µm)')
+plt.ylabel('Redox Ratio')
+plt.title('Comparison of Redox Ratio at Different ROIs in Untreated Organoid')
+plt.legend()
+plt.grid(True)
+plt.xticks(range(10, max(z_values) + 1, 20))
+os.makedirs('final_images/plot', exist_ok=True)
+plt.savefig('final_images/plot/plot1.png')
+plt.show()
+
+# d/c values at 110um
+
+# %% Plot 2
+samples = [
+    calculate_redox_ratio('processed/Organoid2/', roi_coords=(400, 320), roi_size=(25, 25)),
+    calculate_redox_ratio('processed/Organoid_DMSO_treated/', roi_coords=(250, 150), roi_size=(25, 25)),
+    calculate_redox_ratio('processed/Organoid_DOX_treated/', roi_coords=(280, 50), roi_size=(25, 25))
+]
+
+plt.figure(figsize=(12, 8))
+min_length = min(len(sample) for sample in samples)
+z_values = [0, 10] + list(range(30, 20 * min_length, 20))
+
+labels = ['Untreated Organoid', 'DMSO', 'DOX']
+markers = ['o', 'o', 'o']
+
+for sample, label, marker in zip(samples, labels, markers):
+    plt.plot(z_values[:min_length], sample[:min_length], marker=marker, label=label)
+
+plt.xlabel('Imaging Depth (µm)')
+plt.ylabel('Redox Ratio')
+plt.title('Comparison of Redox Ratio in Treated and Untreated Organoids')
+plt.legend()
+plt.grid(True)
+plt.xticks(range(10, 110, 20))
+os.makedirs('final_images/plot', exist_ok=True)
+plt.savefig('final_images/plot/plot2.png')
+plt.show()
 
 # %% T Testing
 # Analysis and plotting
@@ -276,17 +323,14 @@ def create_redox_ratio_colormap(parent_dir, roi_coords=(100, 100)):
         # Plot NADH max projection
         ax1.imshow(nadh_max, cmap='gray')
         ax1.set_title('NADH Max Projection')
-        ax1.axis('off')
 
         # Plot FAD max projection
         ax2.imshow(fad_max, cmap='gray')
         ax2.set_title('FAD Max Projection')
-        ax2.axis('off')
 
         # Plot redox ratio colormap
         im = ax3.imshow(redox_ratio, cmap='coolwarm', vmin=0, vmax=1)
         ax3.set_title('Redox Ratio Colormap')
-        ax3.axis('off')
 
         # Add colorbar
         cbar = fig.colorbar(im, ax=ax3, fraction=0.046, pad=0.04)
@@ -304,20 +348,60 @@ def create_redox_ratio_colormap(parent_dir, roi_coords=(100, 100)):
     except FileNotFoundError:
         print(f"Error: Required files not found in directory {parent_dir}")
         return None
+    
+org1_redox_cm = create_redox_ratio_colormap('processed/Organoid1/')
+org2_redox_cm = create_redox_ratio_colormap('processed/Organoid2/')
+dmso_redox_cm = create_redox_ratio_colormap('processed/Organoid_DMSO_treated/')
+dox_redox_cm = create_redox_ratio_colormap('processed/Organoid_DOX_treated/')
 
+# %%
+def export_individually(parent_dir, roi_coords=(100, 100)):
+    try:
+        nadh_file = next(f for f in os.listdir(parent_dir) if f.endswith('745nm.tif'))
+        fad_file = next(f for f in os.listdir(parent_dir) if f.endswith('860nm.tif'))
+        
+        nadh_stack = tifffile.imread(os.path.join(parent_dir, nadh_file))
+        fad_stack = tifffile.imread(os.path.join(parent_dir, fad_file))
+
+        nadh_max = np.max(nadh_stack, axis=0)
+        fad_max = np.max(fad_stack, axis=0)
+
+        redox_ratio = np.divide(fad_max.astype(float), (nadh_max.astype(float) + fad_max.astype(float)),
+                                out=np.zeros_like(nadh_max, dtype=float), where=fad_max+nadh_max!=0)
+
+        file_name = os.path.basename(parent_dir.rstrip('/'))
+        output_dir = f'./final_images/{file_name}'
+        os.makedirs(output_dir, exist_ok=True)
+
+        plt.figure(figsize=(6, 6))
+        plt.imshow(nadh_max, cmap='gray')
+        plt.title('NADH Max Projection')
+        plt.savefig(f'{output_dir}/nadh_max.tiff', bbox_inches='tight')
+        plt.close()
+
+        plt.figure(figsize=(6, 6))
+        plt.imshow(fad_max, cmap='gray')
+        plt.title('FAD Max Projection')
+        plt.savefig(f'{output_dir}/fad_max.tiff', bbox_inches='tight')
+        plt.close()
+
+        plt.figure(figsize=(6, 6))
+        im = plt.imshow(redox_ratio, cmap='coolwarm', vmin=0, vmax=1)
+        plt.title('Redox Ratio Colormap')
+        cbar = plt.colorbar(im, fraction=0.046, pad=0.04)
+        cbar.set_label('Redox Ratio')
+        plt.savefig(f'{output_dir}/redox_ratio.tiff', bbox_inches='tight')
+        plt.close()
+
+        return redox_ratio
+    except FileNotFoundError:
+        print(f"Error: Required files not found in directory {parent_dir}")
+        return None
 # Generate colormaps for each condition
-org1_redox = create_redox_ratio_colormap('processed/Organoid1/')
-org2_redox = create_redox_ratio_colormap('processed/Organoid2/')
-dmso_redox = create_redox_ratio_colormap('processed/Organoid_DMSO_treated/')
-dox_redox = create_redox_ratio_colormap('processed/Organoid_DOX_treated/')
-
-# %% Export Images
-def tif_to_gif(tif_file, gif_file):
-    """Convert a TIFF file to a GIF file."""
-    img = Image.open(tif_file)
-    img.save(gif_file, save_all=True)
-
-tif_to_gif("your_image.tif", "output.gif")
+org1_redox = export_individually('processed/Organoid1/')
+org2_redox = export_individually('processed/Organoid2/')
+dmso_redox = export_individually('processed/Organoid_DMSO_treated/')
+dox_redox = export_individually('processed/Organoid_DOX_treated/')
 
 # %% TODO
 
